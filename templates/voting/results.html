@@ -1,0 +1,56 @@
+{% extends "voting/base.html" %}
+{% block title %}Results – {{ election.title }}{% endblock %}
+
+{% block content %}
+<div class="container section">
+    <div style="max-width:800px;margin:0 auto;">
+        <a href="/results/" style="color:var(--green);font-size:.85rem;font-weight:600;text-decoration:none;">← All Results</a>
+
+        <div class="card mt-3">
+            <div style="text-align:center;padding-bottom:1.5rem;border-bottom:1px solid var(--gray-100);margin-bottom:1.5rem;">
+                <div style="font-size:2rem;margin-bottom:.5rem;">📊</div>
+                <h1 style="font-size:1.6rem;font-weight:800;letter-spacing:-.02em;">{{ election.title }}</h1>
+                <div style="display:flex;gap:.5rem;justify-content:center;margin-top:.5rem;">
+                    <span class="badge badge-info">{{ election.get_election_type_display }}</span>
+                    <span class="badge badge-{% if election.status == 'active' %}success{% elif election.status == 'completed' %}gray{% else %}warning{% endif %}">
+                        {{ election.get_status_display }}
+                    </span>
+                </div>
+                <p style="margin-top:1rem;font-size:.9rem;color:var(--gray-600);">
+                    Total Votes Cast: <strong style="font-family:var(--mono);font-size:1.1rem;color:var(--green);">{{ total_votes }}</strong>
+                </p>
+            </div>
+
+            <!-- Results bars -->
+            {% for candidate in candidates %}
+            <div style="margin-bottom:1.5rem;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+                    <div>
+                        <span style="font-weight:700;font-size:1rem;">{{ candidate.full_name }}</span>
+                        <span class="badge party-{{ candidate.party }}" style="margin-left:.5rem;padding:.2rem .5rem;border-radius:6px;font-size:.72rem;font-weight:700;">{{ candidate.party }}</span>
+                        {% if forloop.first and total_votes > 0 %}
+                            <span class="badge badge-success" style="margin-left:.25rem;">🏆 Leading</span>
+                        {% endif %}
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--green);">{{ candidate.num_votes }}</span>
+                        <span style="font-size:.82rem;color:var(--gray-400);margin-left:.25rem;">({{ candidate.vote_percentage }}%)</span>
+                    </div>
+                </div>
+                <div class="progress" style="height:14px;">
+                    <div class="progress-bar" style="width:{{ candidate.vote_percentage }}%;{% if forloop.first %}background:var(--green);{% else %}background:var(--gray-400);{% endif %}"></div>
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align:center;color:var(--gray-400);padding:2rem;">No candidates found for this election.</div>
+            {% endfor %}
+
+            {% if election.status == 'active' %}
+            <div class="alert alert-warning mt-3">
+                ⏳ This election is still ongoing. Results may change as more votes are cast.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

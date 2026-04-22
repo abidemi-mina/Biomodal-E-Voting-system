@@ -1,0 +1,299 @@
+{% extends "voting/base.html" %}
+{% block title %}Ballot – {{ election.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.ballot-wrap { max-width: 720px; margin: 2rem auto; padding: 0 1.5rem; }
+
+.ballot-header {
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    color: white;
+    border-radius: 20px 20px 0 0;
+    padding: 2rem;
+    text-align: center;
+}
+.ballot-header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: .25rem; }
+.ballot-body { background: white; border-radius: 0 0 20px 20px; box-shadow: var(--shadow-lg); padding: 2rem; }
+
+.candidate-card {
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+.candidate-card:hover { border-color: var(--green); background: var(--green-muted); transform: translateY(-1px); }
+.candidate-card.selected {
+    border-color: var(--green);
+    background: var(--green-muted);
+    box-shadow: 0 0 0 4px rgba(0,135,81,.15);
+}
+.candidate-card input[type=radio] { display: none; }
+
+.candidate-position {
+    min-width: 40px; height: 40px;
+    background: var(--gray-100);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .9rem;
+    color: var(--gray-600);
+}
+.selected .candidate-position { background: var(--green); color: white; }
+
+.candidate-photo {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--gray-200);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    overflow: hidden;
+}
+.candidate-info { flex: 1; }
+.candidate-name { font-size: 1.05rem; font-weight: 700; margin-bottom: .2rem; }
+.candidate-party { font-size: .85rem; color: var(--gray-600); }
+.candidate-bio { font-size: .8rem; color: var(--gray-400); margin-top: .25rem; }
+.party-badge {
+    padding: .3rem .7rem;
+    border-radius: 8px;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.party-APC { background: #dbeafe; color: #1e40af; }
+.party-PDP { background: #fef9c3; color: #854d0e; }
+.party-LP { background: #dcfce7; color: #166534; }
+.party-NNPP { background: #fce7f3; color: #9d174d; }
+.party-APGA { background: #ffe4e6; color: #9f1239; }
+.party-IND, .party-OTHER, .party-SDP, .party-ADC { background: var(--gray-100); color: var(--gray-700); }
+
+.radio-indicator {
+    min-width: 24px; height: 24px;
+    border: 2px solid var(--gray-300);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+}
+.selected .radio-indicator { border-color: var(--green); background: var(--green); }
+.selected .radio-indicator::after {
+    content: '✓';
+    color: white;
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+/* Confirmation modal */
+.modal-bg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 1000;
+    align-items: center; justify-content: center;
+}
+.modal-bg.open { display: flex; }
+.modal {
+    background: white;
+    border-radius: 24px;
+    padding: 2.5rem;
+    width: min(480px, 95vw);
+    box-shadow: 0 24px 64px rgba(0,0,0,.3);
+    text-align: center;
+}
+.modal h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: .5rem; }
+.modal-candidate {
+    background: var(--green-muted);
+    border: 2px solid var(--green);
+    border-radius: 16px;
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+}
+.modal-candidate .name { font-size: 1.2rem; font-weight: 700; }
+.modal-candidate .party { color: var(--gray-600); font-size: .9rem; margin-top: .2rem; }
+.modal-btns { display: flex; gap: 1rem; justify-content: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ballot-wrap">
+    <div class="ballot-header">
+        <div style="font-size:1.5rem;margin-bottom:.5rem;">🗳️</div>
+        <h1>{{ election.title }}</h1>
+        <p style="opacity:.85;font-size:.88rem;">{{ election.get_election_type_display }} Election &nbsp;·&nbsp; Voter: {{ voter.voter_id }}</p>
+    </div>
+
+    <div class="ballot-body">
+        <div class="alert alert-warning mb-3">
+            ⚠️ <strong>Important:</strong> Your vote is final and cannot be changed after submission. Review your choice carefully before confirming.
+        </div>
+
+        <h3 style="font-weight:700;margin-bottom:1rem;font-size:1rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-600);">
+            Select One Candidate:
+        </h3>
+
+        <div id="candidateList">
+            {% for candidate in candidates %}
+            <div class="candidate-card" onclick="selectCandidate('{{ candidate.id }}', '{{ candidate.full_name }}', '{{ candidate.get_party_display }}')"
+                 id="card-{{ candidate.id }}" data-id="{{ candidate.id }}">
+                <div class="candidate-position">{{ candidate.position_number }}</div>
+
+                <div class="candidate-photo">
+                    {% if candidate.photo %}
+                        <img src="{{ candidate.photo.url }}" alt="{{ candidate.full_name }}">
+                    {% else %}
+                        👤
+                    {% endif %}
+                </div>
+
+                <div class="candidate-info">
+                    <div class="candidate-name">{{ candidate.full_name }}</div>
+                    <div class="candidate-party">
+                        <span class="party-badge party-{{ candidate.party }}">{{ candidate.party }}</span>
+                        {% if candidate.party_name %} {{ candidate.party_name }}{% endif %}
+                    </div>
+                    {% if candidate.bio %}
+                    <div class="candidate-bio">{{ candidate.bio|truncatewords:15 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="radio-indicator"></div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="selectionMsg" class="alert alert-info mt-3" style="display:none;"></div>
+
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;">
+            <a href="/vote/" class="btn btn-secondary">← Back to Elections</a>
+            <button id="btnCastVote" class="btn btn-primary btn-lg" disabled onclick="openConfirm()">
+                🗳️ Cast Vote
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-bg" id="confirmModal">
+    <div class="modal">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
+        <h2>Confirm Your Vote</h2>
+        <p style="color:var(--gray-600);font-size:.9rem;">You are about to cast your vote for:</p>
+        <div class="modal-candidate">
+            <div class="name" id="modalCandidateName">—</div>
+            <div class="party" id="modalCandidateParty">—</div>
+        </div>
+        <p style="font-size:.82rem;color:var(--gray-400);margin-bottom:1.5rem;">This action is <strong>irreversible</strong>. Once confirmed, your vote cannot be changed.</p>
+        <div class="modal-btns">
+            <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+            <button class="btn btn-primary btn-lg" id="btnConfirmVote" onclick="castVote()">
+                ✅ Confirm Vote
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal-bg" id="successModal">
+    <div class="modal">
+        <div style="font-size:3rem;margin-bottom:1rem;">🎉</div>
+        <h2>Vote Cast Successfully!</h2>
+        <p style="color:var(--gray-600);font-size:.9rem;margin-top:.5rem;">Your vote has been securely recorded.</p>
+        <div style="background:var(--gray-100);border-radius:12px;padding:1rem 1.5rem;margin:1.5rem 0;font-family:var(--mono);">
+            <div style="font-size:.75rem;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Vote Receipt</div>
+            <div id="voteReceipt" style="font-size:1.1rem;font-weight:700;color:var(--green);letter-spacing:.1em;">—</div>
+        </div>
+        <p style="font-size:.8rem;color:var(--gray-400);margin-bottom:1.5rem;">Save this receipt for your records.</p>
+        <a href="/vote/" class="btn btn-primary" onclick="document.getElementById('successModal').classList.remove('open')">Back to Dashboard</a>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedCandidateId = null;
+let selectedName = '';
+let selectedParty = '';
+const electionId = '{{ election.id }}';
+
+function selectCandidate(id, name, party) {
+    // Deselect previous
+    document.querySelectorAll('.candidate-card').forEach(c => c.classList.remove('selected'));
+    // Select new
+    document.getElementById('card-' + id).classList.add('selected');
+    selectedCandidateId = id;
+    selectedName = name;
+    selectedParty = party;
+
+    // Enable button
+    document.getElementById('btnCastVote').disabled = false;
+
+    // Show selection message
+    const msg = document.getElementById('selectionMsg');
+    msg.textContent = `✅ Selected: ${name} (${party})`;
+    msg.style.display = 'flex';
+    msg.className = 'alert alert-success mt-3';
+}
+
+function openConfirm() {
+    if (!selectedCandidateId) return;
+    document.getElementById('modalCandidateName').textContent = selectedName;
+    document.getElementById('modalCandidateParty').textContent = selectedParty;
+    document.getElementById('confirmModal').classList.add('open');
+}
+
+function closeConfirm() {
+    document.getElementById('confirmModal').classList.remove('open');
+}
+
+async function castVote() {
+    const btn = document.getElementById('btnConfirmVote');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Casting vote…';
+
+    try {
+        const resp = await fetch('/api/vote/cast/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({
+                election_id: electionId,
+                candidate_id: selectedCandidateId,
+            }),
+        });
+        const data = await resp.json();
+        closeConfirm();
+
+        if (data.success) {
+            document.getElementById('voteReceipt').textContent = data.receipt || '—';
+            document.getElementById('successModal').classList.add('open');
+        } else {
+            alert('❌ ' + (data.message || 'Vote casting failed.'));
+            btn.disabled = false;
+            btn.textContent = '✅ Confirm Vote';
+        }
+    } catch (e) {
+        alert('❌ Network error. Please try again.');
+        btn.disabled = false;
+        btn.textContent = '✅ Confirm Vote';
+    }
+}
+
+function getCsrf() {
+    return document.cookie.split(';')
+        .find(c => c.trim().startsWith('csrftoken='))
+        ?.split('=')[1] || '';
+}
+
+// Close modals on background click
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+});
+</script>
+{% endblock %}

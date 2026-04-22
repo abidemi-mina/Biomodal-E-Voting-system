@@ -1,0 +1,79 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Elections – Admin{% endblock %}
+{% block page_title %}Election Management{% endblock %}
+{% block nav_elections %}active{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start;">
+    <!-- Elections list -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📋 All Elections</div>
+        </div>
+        {% for election in elections %}
+        <div style="padding:1rem 0;border-bottom:1px solid var(--gray-100);">
+            <div class="flex justify-between items-center mb-1">
+                <div style="font-weight:700;font-size:.95rem;">{{ election.title }}</div>
+                <span class="badge badge-{% if election.status == 'active' %}success{% elif election.status == 'completed' %}gray{% else %}warning{% endif %}">
+                    {{ election.status }}
+                </span>
+            </div>
+            <div class="text-muted mb-1">{{ election.get_election_type_display }} · {{ election.total_votes }} votes</div>
+            <div style="font-size:.78rem;color:var(--gray-400);">
+                {{ election.start_date|date:"M d, Y H:i" }} → {{ election.end_date|date:"M d, Y H:i" }}
+            </div>
+            <div style="margin-top:.75rem;display:flex;gap:.5rem;">
+                <a href="/admin-panel/elections/{{ election.id }}/toggle/"
+                   class="btn btn-sm {% if election.status == 'active' %}btn-danger{% else %}btn-primary{% endif %}">
+                    {% if election.status == 'active' %}⏹ End Election{% elif election.status == 'upcoming' %}▶ Activate{% else %}↩ Reactivate{% endif %}
+                </a>
+                <a href="/results/{{ election.id }}/" class="btn btn-secondary btn-sm" target="_blank">View Results</a>
+            </div>
+        </div>
+        {% empty %}
+        <p style="color:var(--gray-400);text-align:center;padding:2rem;">No elections created yet.</p>
+        {% endfor %}
+    </div>
+
+    <!-- Create election form -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">➕ Create New Election</div>
+        </div>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="form-group">
+                <label class="form-label">Election Title *</label>
+                <input type="text" name="title" class="form-control" value="{{ form.title.value|default:'' }}" placeholder="e.g. 2027 Presidential Election" required>
+                {% if form.title.errors %}<div style="color:var(--red);font-size:.78rem;margin-top:.2rem;">{{ form.title.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Election Type *</label>
+                <select name="election_type" class="form-control">
+                    {% for val, label in form.fields.election_type.choices %}
+                    <option value="{{ val }}" {% if form.election_type.value == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="2" placeholder="Optional description">{{ form.description.value|default:'' }}</textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Start Date & Time *</label>
+                    <input type="datetime-local" name="start_date" class="form-control" value="{{ form.start_date.value|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Date & Time *</label>
+                    <input type="datetime-local" name="end_date" class="form-control" value="{{ form.end_date.value|default:'' }}" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Create Election</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

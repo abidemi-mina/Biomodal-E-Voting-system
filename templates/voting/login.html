@@ -1,0 +1,57 @@
+{% extends "voting/base.html" %}
+{% block title %}Login – NigeriaVotes{% endblock %}
+
+{% block content %}
+<div style="max-width:460px;margin:3rem auto;padding:0 1.5rem;">
+
+    {% if request.GET.registered %}
+    <div class="alert alert-success">
+        🎉 Registration complete! Your Voter ID is: <strong style="font-family:var(--mono);">{{ request.GET.voter_id }}</strong>. You can now login to vote.
+    </div>
+    {% endif %}
+
+    <div style="text-align:center;margin-bottom:2rem;">
+        <div style="font-size:3rem;margin-bottom:.75rem;">🔐</div>
+        <h1 style="font-size:1.8rem;font-weight:800;letter-spacing:-.03em;">Voter Login</h1>
+        <p style="color:var(--gray-600);">Enter your Voter ID to proceed to facial authentication</p>
+    </div>
+
+    <div class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Voter ID (VIN)</label>
+                <input
+                    type="text"
+                    name="voter_id"
+                    class="form-control"
+                    placeholder="e.g. 00AB123456789"
+                    value="{{ form.voter_id.value|default:'' }}"
+                    autocomplete="off"
+                    required
+                    style="font-family:var(--mono);font-size:1rem;letter-spacing:.05em;"
+                >
+                {% if form.voter_id.errors %}
+                    <div class="form-error">{{ form.voter_id.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="alert alert-info" style="font-size:.85rem;">
+                ℹ️ After entering your ID, you will be asked to verify your identity using facial recognition and liveness detection.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:.5rem;">
+                Continue to Face Verification →
+            </button>
+        </form>
+    </div>
+
+    <p style="text-align:center;margin-top:1.5rem;font-size:.85rem;color:var(--gray-400);">
+        New voter? <a href="/register/" style="color:var(--green);font-weight:600;">Register here</a>
+    </p>
+
+    <div style="margin-top:1.5rem;padding:1.25rem;background:var(--gray-100);border-radius:12px;font-size:.82rem;color:var(--gray-600);">
+        <strong>🔒 Security Notice:</strong> This system uses biometric facial recognition with liveness detection. Please ensure you are in a well-lit environment and using a live camera. Photos or videos will be rejected.
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Dashboard – Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+    <div class="stat-card green">
+        <div class="stat-num">{{ approved_voters }}</div>
+        <div class="stat-label">✅ Approved Voters</div>
+    </div>
+    <div class="stat-card amber">
+        <div class="stat-num">{{ pending_voters }}</div>
+        <div class="stat-label">⏳ Pending Approval</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-num">{{ active_elections }}</div>
+        <div class="stat-label">🗳️ Active Elections</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-num">{{ total_votes }}</div>
+        <div class="stat-label">📊 Total Votes Cast</div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Recent Elections -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📋 Recent Elections</div>
+            <a href="/admin-panel/elections/" class="btn btn-secondary btn-sm">Manage</a>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Election</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Votes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for election in elections %}
+                <tr>
+                    <td style="font-weight:600;">{{ election.title|truncatechars:30 }}</td>
+                    <td>{{ election.get_election_type_display }}</td>
+                    <td>
+                        <span class="badge badge-{% if election.status == 'active' %}success{% elif election.status == 'completed' %}gray{% else %}warning{% endif %}">
+                            {{ election.status }}
+                        </span>
+                    </td>
+                    <td style="font-family:var(--mono);">{{ election.total_votes }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="color:var(--gray-400);text-align:center;">No elections yet</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Recent Audit Logs -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📝 Recent Activity</div>
+            <a href="/admin-panel/audit/" class="btn btn-secondary btn-sm">View All</a>
+        </div>
+        <div style="max-height:320px;overflow-y:auto;">
+            {% for log in recent_logs %}
+            <div style="padding:.6rem 0;border-bottom:1px solid var(--gray-100);font-size:.82rem;display:flex;gap:.75rem;align-items:flex-start;">
+                <span style="min-width:28px;text-align:center;">
+                    {% if log.success %}✅{% else %}❌{% endif %}
+                </span>
+                <div>
+                    <span class="badge badge-{% if log.success %}success{% else %}danger{% endif %}" style="margin-bottom:.2rem;">{{ log.action }}</span>
+                    <div style="color:var(--gray-600);">{{ log.description|truncatechars:60 }}</div>
+                    <div class="text-muted">{{ log.timestamp|date:"M d, H:i" }} {% if log.voter_id %}· {{ log.voter_id }}{% endif %}</div>
+                </div>
+            </div>
+            {% empty %}
+            <p style="color:var(--gray-400);text-align:center;padding:2rem;">No activity yet</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="card mt-2">
+    <div class="card-header">
+        <div class="card-title">⚡ Quick Actions</div>
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+        <a href="/admin-panel/elections/" class="btn btn-primary">➕ Create Election</a>
+        <a href="/admin-panel/candidates/" class="btn btn-primary">👤 Add Candidate</a>
+        <a href="/admin-panel/voters/" class="btn btn-secondary">👥 Manage Voters</a>
+        <a href="/admin-panel/metrics/" class="btn btn-secondary">📈 View Metrics</a>
+    </div>
+</div>
+{% endblock %}

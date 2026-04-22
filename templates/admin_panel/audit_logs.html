@@ -1,0 +1,52 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Audit Logs – Admin{% endblock %}
+{% block page_title %}Audit Logs{% endblock %}
+{% block nav_audit %}active{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">📝 System Audit Trail</div>
+        <input type="text" id="logSearch" class="form-control" placeholder="Filter logs..." style="width:220px;">
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table" id="logsTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Voter ID</th>
+                    <th>Description</th>
+                    <th>IP</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="text-muted" style="white-space:nowrap;">{{ log.timestamp|date:"M d H:i:s" }}</td>
+                    <td><span class="badge badge-{% if log.success %}info{% else %}danger{% endif %}">{{ log.action }}</span></td>
+                    <td><code style="font-family:var(--mono);font-size:.78rem;">{{ log.voter_id|default:"—" }}</code></td>
+                    <td style="font-size:.82rem;color:var(--gray-600);max-width:300px;">{{ log.description|truncatechars:80 }}</td>
+                    <td class="text-muted">{{ log.ip_address|default:"—" }}</td>
+                    <td>{% if log.success %}✅{% else %}❌{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:2rem;">No audit logs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('logSearch').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#logsTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

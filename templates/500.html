@@ -1,0 +1,20 @@
+{% extends "voting/base.html" %}
+{% block title %}Server Error – NigeriaVotes{% endblock %}
+{% block content %}
+<div style="max-width:520px;margin:5rem auto;padding:0 1.5rem;text-align:center;">
+    <div style="font-size:5rem;margin-bottom:1rem;">⚙️</div>
+    <h1 style="font-size:4rem;font-weight:800;color:var(--red);font-family:var(--mono);margin-bottom:.5rem;">500</h1>
+    <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:.75rem;">Internal Server Error</h2>
+    <p style="color:var(--gray-600);margin-bottom:2rem;line-height:1.7;">
+        Something went wrong on our end. Our team has been notified and is working to fix it.
+        Please try again in a few minutes.
+    </p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+        <a href="/" class="btn btn-primary btn-lg">🏠 Go Home</a>
+        <a href="javascript:location.reload()" class="btn btn-secondary btn-lg">🔄 Try Again</a>
+    </div>
+    <div style="margin-top:2rem;padding:1.25rem;background:#fef2f2;border-radius:12px;font-size:.82rem;color:#991b1b;border-left:4px solid var(--red);">
+        ⚠️ Your vote has NOT been recorded if this error occurred during voting. Please try again after the system recovers.
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "voting/base.html" %}
+{% block title %}Election Results – NigeriaVotes{% endblock %}
+
+{% block content %}
+<div class="container section">
+    <h1 style="font-size:1.7rem;font-weight:800;letter-spacing:-.03em;margin-bottom:.5rem;">📊 Election Results</h1>
+    <p style="color:var(--gray-600);margin-bottom:2rem;">Live and completed election results</p>
+
+    {% if elections %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;">
+        {% for election in elections %}
+        <div class="card" style="border-top:4px solid {% if election.status == 'active' %}var(--green){% else %}var(--gray-300){% endif %};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
+                <h3 style="font-size:1rem;font-weight:700;">{{ election.title }}</h3>
+                <span class="badge badge-{% if election.status == 'active' %}success{% else %}gray{% endif %}">
+                    {{ election.get_status_display }}
+                </span>
+            </div>
+            <p style="font-size:.82rem;color:var(--gray-400);margin-bottom:1rem;">
+                {{ election.get_election_type_display }}&nbsp;·&nbsp;
+                <strong style="font-family:var(--mono);">{{ election.total_votes }}</strong> votes
+            </p>
+            <a href="/results/{{ election.id }}/" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;">View Results →</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:4rem;">
+        <div style="font-size:3rem;margin-bottom:1rem;">📋</div>
+        <h3>No Results Yet</h3>
+        <p style="color:var(--gray-600);">Check back when elections are active or completed.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,544 @@
+{% extends "voting/base.html" %}
+{% block title %}Face Verification – NigeriaVotes{% endblock %}
+
+{% block extra_css %}
+<style>
+.auth-wrap { max-width: 620px; margin: 2rem auto; padding: 0 1.5rem; }
+.auth-card { background: white; border-radius: 24px; box-shadow: var(--shadow-lg); overflow: hidden; }
+.auth-header {
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    color: white; padding: 2rem; text-align: center;
+}
+.auth-header h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: .25rem; }
+.auth-body { padding: 2rem; }
+
+/* Camera */
+.cam-wrap {
+    position: relative; width: 100%; aspect-ratio: 4/3;
+    background: #0a0a0a; border-radius: 16px; overflow: hidden; margin-bottom: 1.5rem;
+}
+#authVideo { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:block; }
+#faceCanvas {
+    position: absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events: none;
+}
+.cam-label {
+    position: absolute; bottom: 1rem; left:50%; transform:translateX(-50%);
+    background: rgba(0,0,0,.75); color:white; padding:.4rem 1.2rem;
+    border-radius:99px; font-size:.8rem; font-weight:600; white-space:nowrap;
+    backdrop-filter:blur(4px); transition: background .3s;
+}
+
+/* Challenge banner */
+.challenge-banner {
+    position: absolute; top: 1rem; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.82); color: white; padding: .5rem 1.4rem;
+    border-radius: 99px; font-size: .88rem; font-weight: 700; white-space: nowrap;
+    backdrop-filter: blur(6px); display: none; align-items: center; gap: .5rem;
+    border: 2px solid rgba(255,255,255,.2);
+}
+.challenge-banner.show { display: flex; }
+.challenge-icon { font-size: 1.1rem; }
+
+/* Attempt dots */
+.attempts { display:flex; gap:.4rem; }
+.attempt-dot { width:9px; height:9px; border-radius:50%; background:var(--gray-200); transition:background .3s; }
+.attempt-dot.used { background:var(--red); }
+
+/* Score boxes */
+.score-row { display:flex; gap:1rem; margin-bottom:1.25rem; }
+.score-box { flex:1; background:var(--gray-50); border-radius:12px; padding:1rem; text-align:center; }
+.score-val { font-size:1.6rem; font-weight:800; font-family:var(--mono); color:var(--gray-400); }
+.score-val.live { color:var(--green); }
+.score-val.match { color:#1d4ed8; }
+.score-val.fail { color:var(--red); }
+.score-label { font-size:.72rem; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:.05em; }
+
+/* Challenge progress */
+.challenge-progress {
+    background: var(--gray-100); border-radius: 12px; padding: 1rem;
+    margin-bottom: 1.25rem; display: none;
+}
+.challenge-progress.show { display: block; }
+.challenge-steps { display: flex; gap: .5rem; align-items: center; }
+.challenge-step {
+    flex: 1; height: 6px; background: var(--gray-200); border-radius: 99px; overflow: hidden;
+}
+.challenge-step-fill { height: 100%; width: 0%; border-radius: 99px; background: var(--green); transition: width .4s ease; }
+.challenge-step.done .challenge-step-fill { width: 100%; }
+.challenge-step.active .challenge-step-fill { width: 50%; animation: pulse-fill 1s ease-in-out infinite; }
+@keyframes pulse-fill { 0%,100%{width:30%} 50%{width:70%} }
+
+/* Auto-capture countdown ring */
+.countdown-ring-wrap {
+    position: absolute; bottom: 1rem; right: 1rem;
+    width: 52px; height: 52px; display: none;
+}
+.countdown-ring-wrap.show { display: block; }
+.countdown-ring-wrap svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: rgba(255,255,255,.2); stroke-width: 4; }
+.ring-fill { fill: none; stroke: #22c55e; stroke-width: 4; stroke-linecap: round;
+    stroke-dasharray: 126; stroke-dashoffset: 126; transition: stroke-dashoffset .9s linear; }
+.ring-text {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: white; font-size: .95rem; font-weight: 800; font-family: var(--mono);
+}
+
+#authResult { display:none; }
+#authResult.show { display:flex; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div style="font-size:2rem;margin-bottom:.5rem;">🛡️</div>
+            <h1>Identity Verification</h1>
+            <p style="opacity:.85;font-size:.9rem;">
+                Voter: <strong>{{ voter.voter_id }}</strong> — {{ voter.full_name }}
+            </p>
+        </div>
+
+        <div class="auth-body">
+
+            <!-- Attempt dots -->
+            <div class="flex items-center justify-between mb-2">
+                <span style="font-size:.82rem;font-weight:600;color:var(--gray-600);">Attempts Remaining</span>
+                <div class="attempts" id="attemptDots">
+                    <div class="attempt-dot" id="dot1"></div>
+                    <div class="attempt-dot" id="dot2"></div>
+                    <div class="attempt-dot" id="dot3"></div>
+                    <div class="attempt-dot" id="dot4"></div>
+                    <div class="attempt-dot" id="dot5"></div>
+                </div>
+            </div>
+
+            <!-- Camera with canvas overlay -->
+            <div class="cam-wrap" id="camWrap">
+                <video id="authVideo" autoplay muted playsinline></video>
+                <canvas id="faceCanvas"></canvas>
+
+                <!-- Active liveness challenge banner -->
+                <div class="challenge-banner" id="challengeBanner">
+                    <span class="challenge-icon" id="challengeIcon">👁️</span>
+                    <span id="challengeText">Look straight at the camera</span>
+                </div>
+
+                <!-- Auto-capture countdown ring -->
+                <div class="countdown-ring-wrap" id="countdownRing">
+                    <svg width="52" height="52" viewBox="0 0 44 44">
+                        <circle class="ring-bg" cx="22" cy="22" r="20"/>
+                        <circle class="ring-fill" id="ringFill" cx="22" cy="22" r="20"/>
+                    </svg>
+                    <div class="ring-text" id="ringText">3</div>
+                </div>
+
+                <div class="cam-label" id="camLabel">📷 Starting camera…</div>
+            </div>
+
+            <!-- Liveness challenge steps -->
+            <div class="challenge-progress" id="challengeProgress">
+                <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                    color:var(--gray-600);margin-bottom:.6rem;">Liveness Challenge Progress</div>
+                <div class="challenge-steps">
+                    <div class="challenge-step" id="cStep1"><div class="challenge-step-fill"></div></div>
+                    <div class="challenge-step" id="cStep2"><div class="challenge-step-fill"></div></div>
+                    <div class="challenge-step" id="cStep3"><div class="challenge-step-fill"></div></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.7rem;color:var(--gray-400);">
+                    <span>Look straight</span><span>Turn left</span><span>Turn right</span>
+                </div>
+            </div>
+
+            <!-- Score display -->
+            <div class="score-row">
+                <div class="score-box">
+                    <div class="score-val" id="livenessScore">—</div>
+                    <div class="score-label">👁 Liveness</div>
+                </div>
+                <div class="score-box">
+                    <div class="score-val" id="matchScore">—</div>
+                    <div class="score-label">🧠 Face Match</div>
+                </div>
+                <div class="score-box">
+                    <div class="score-val" id="authStatusIcon">⏳</div>
+                    <div class="score-label">Status</div>
+                </div>
+            </div>
+
+            <!-- Result message -->
+            <div id="authResult" class="alert"></div>
+
+            <!-- Buttons -->
+            <button id="btnVerify" class="btn btn-primary btn-lg"
+                style="width:100%;justify-content:center;">
+                🔍 Start Liveness Check
+            </button>
+            <a href="/login/" class="btn btn-secondary"
+                style="width:100%;justify-content:center;margin-top:.75rem;">
+                ← Use Different Voter ID
+            </a>
+        </div>
+    </div>
+
+    <div style="margin-top:1.5rem;text-align:center;font-size:.8rem;color:var(--gray-400);">
+        🔒 Your face scan is processed in real-time and not stored after verification.
+        All data is encrypted via HTTPS.
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Constants ──────────────────────────────────────────────────
+const MAX_ATTEMPTS = 5;
+const CHALLENGE_HOLD_MS = 1200; // ms to hold each pose
+
+// ── State ──────────────────────────────────────────────────────
+let stream = null;
+let verifying = false;
+let attempts = 0;
+let challengeStep = 0;         // 0=idle, 1=straight, 2=left, 3=right
+let challengeCaptures = {};    // {straight: b64, left: b64, right: b64}
+let challengeHoldTimer = null;
+let autoCapturing = false;
+let countdownValue = 3;
+let countdownTimer = null;
+let animFrame = null;
+
+// ── DOM refs ──────────────────────────────────────────────────
+const video     = document.getElementById('authVideo');
+const canvas    = document.getElementById('faceCanvas');
+const ctx       = canvas.getContext('2d');
+const camLabel  = document.getElementById('camLabel');
+const btnVerify = document.getElementById('btnVerify');
+const banner    = document.getElementById('challengeBanner');
+const bannerIcon= document.getElementById('challengeIcon');
+const bannerText= document.getElementById('challengeText');
+const progress  = document.getElementById('challengeProgress');
+const livenessScoreEl = document.getElementById('livenessScore');
+const matchScoreEl    = document.getElementById('matchScore');
+const statusIconEl    = document.getElementById('authStatusIcon');
+const resultEl        = document.getElementById('authResult');
+const ringWrap  = document.getElementById('countdownRing');
+const ringFill  = document.getElementById('ringFill');
+const ringText  = document.getElementById('ringText');
+
+// Challenge definitions
+const CHALLENGES = [
+    { key: 'straight', icon: '😊', text: 'Look straight at the camera',  step: 1 },
+    { key: 'left',     icon: '👈', text: 'Slowly turn your head LEFT',    step: 2 },
+    { key: 'right',    icon: '👉', text: 'Slowly turn your head RIGHT',   step: 3 },
+];
+
+// ── Camera ─────────────────────────────────────────────────────
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { width:{ideal:640}, height:{ideal:480}, facingMode:'user' },
+            audio: false,
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            canvas.width  = video.videoWidth;
+            canvas.height = video.videoHeight;
+            camLabel.textContent = '🟢 Camera ready — click Start Liveness Check';
+            startFaceLoop();
+        };
+    } catch (e) {
+        camLabel.textContent = '❌ Camera unavailable';
+        btnVerify.disabled = true;
+        showResult('error', '❌ Camera access denied. Enable permissions and refresh the page.');
+    }
+}
+
+// ── Face detection loop (lightweight CSS-only oval feedback) ──
+// Uses heuristic brightness/motion to give bounding box feedback
+// Real face detection runs server-side via FaceNet/MTCNN
+let frameCount = 0;
+function startFaceLoop() {
+    function loop() {
+        animFrame = requestAnimationFrame(loop);
+        frameCount++;
+        if (frameCount % 6 !== 0) return; // throttle to ~10fps
+        drawFaceOverlay();
+    }
+    loop();
+}
+
+function drawFaceOverlay() {
+    if (!video.videoWidth) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Mirror transform (video is CSS-mirrored)
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.translate(-canvas.width, 0);
+
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H * 0.42;
+    const rw = W * 0.22, rh = H * 0.33;
+
+    // Determine oval colour by challenge state
+    let colour = verifying ? '#fbbf24' :
+                 Object.keys(challengeCaptures).length === 3 ? '#22c55e' : 'rgba(255,255,255,0.7)';
+
+    // Outer dimming mask
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Cut-out oval (clear)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rw + 8, rh + 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Oval border
+    ctx.strokeStyle = colour;
+    ctx.lineWidth   = 3;
+    ctx.shadowBlur  = 14;
+    ctx.shadowColor = colour;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Corner accent marks
+    drawCornerMarks(ctx, cx, cy, rw, rh, colour);
+
+    // Challenge direction arrow
+    if (challengeStep === 2) drawArrow(ctx, cx - rw - 30, cy, 'left', colour);
+    if (challengeStep === 3) drawArrow(ctx, cx + rw + 30, cy, 'right', colour);
+
+    ctx.restore();
+}
+
+function drawCornerMarks(ctx, cx, cy, rw, rh, colour) {
+    const marks = [
+        [cx - rw * 0.7, cy - rh * 0.85],
+        [cx + rw * 0.7, cy - rh * 0.85],
+        [cx - rw * 0.7, cy + rh * 0.85],
+        [cx + rw * 0.7, cy + rh * 0.85],
+    ];
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 3;
+    marks.forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+}
+
+function drawArrow(ctx, x, y, dir, colour) {
+    ctx.save();
+    ctx.fillStyle = colour;
+    ctx.shadowBlur  = 8;
+    ctx.shadowColor = colour;
+    const size = 14;
+    ctx.beginPath();
+    if (dir === 'left') {
+        ctx.moveTo(x,        y);
+        ctx.lineTo(x + size, y - size);
+        ctx.lineTo(x + size, y + size);
+    } else {
+        ctx.moveTo(x,        y);
+        ctx.lineTo(x - size, y - size);
+        ctx.lineTo(x - size, y + size);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+// ── Capture a frame (un-mirrored JPEG) ───────────────────────
+function captureFrame() {
+    const cap = document.createElement('canvas');
+    cap.width  = video.videoWidth;
+    cap.height = video.videoHeight;
+    const c = cap.getContext('2d');
+    // Mirror correction: draw mirrored so it matches what server expects
+    c.save();
+    c.scale(-1, 1);
+    c.drawImage(video, -cap.width, 0, cap.width, cap.height);
+    c.restore();
+    return cap.toDataURL('image/jpeg', 0.88);
+}
+
+// ── Active Liveness Challenge Flow ───────────────────────────
+function startLivenessChallenge() {
+    challengeStep = 0;
+    challengeCaptures = {};
+    verifying = false;
+    btnVerify.style.display = 'none';
+    progress.classList.add('show');
+    banner.classList.add('show');
+    runNextChallenge();
+}
+
+function runNextChallenge() {
+    if (challengeStep >= CHALLENGES.length) {
+        submitVerification();
+        return;
+    }
+    const ch = CHALLENGES[challengeStep];
+    bannerIcon.textContent = ch.icon;
+    bannerText.textContent = ch.text;
+    camLabel.textContent   = `Step ${ch.step}/3: ${ch.text}`;
+
+    // Update step indicators
+    document.getElementById(`cStep${ch.step}`).classList.add('active');
+
+    // Start auto-capture countdown
+    startCountdown(() => {
+        const frame = captureFrame();
+        challengeCaptures[ch.key] = frame;
+
+        // Mark step done
+        document.getElementById(`cStep${ch.step}`).classList.remove('active');
+        document.getElementById(`cStep${ch.step}`).classList.add('done');
+
+        challengeStep++;
+        setTimeout(runNextChallenge, 400);
+    });
+}
+
+function startCountdown(onComplete) {
+    autoCapturing = true;
+    countdownValue = 3;
+    ringWrap.classList.add('show');
+    ringText.textContent = countdownValue;
+    ringFill.style.strokeDashoffset = '0'; // full ring
+
+    let elapsed = 0;
+    const total = CHALLENGE_HOLD_MS;
+    const interval = 50;
+
+    countdownTimer = setInterval(() => {
+        elapsed += interval;
+        const fraction = elapsed / total;
+        const offset = 126 * (1 - fraction);
+        ringFill.style.strokeDashoffset = offset;
+        ringText.textContent = Math.max(1, Math.ceil((total - elapsed) / 1000));
+
+        if (elapsed >= total) {
+            clearInterval(countdownTimer);
+            ringWrap.classList.remove('show');
+            autoCapturing = false;
+            onComplete();
+        }
+    }, interval);
+}
+
+// ── Submit all challenge frames for server verification ───────
+async function submitVerification() {
+    verifying = true;
+    banner.classList.remove('show');
+    camLabel.textContent = '⚡ Verifying identity…';
+    livenessScoreEl.textContent = '…';
+    matchScoreEl.textContent    = '…';
+    statusIconEl.textContent    = '⏳';
+
+    // Use the "straight" capture as primary auth image
+    const primaryImage = challengeCaptures['straight'] || challengeCaptures['left'];
+
+    attempts++;
+    if (attempts <= 5) {
+        document.getElementById(`dot${attempts}`)?.classList.add('used');
+    }
+
+    try {
+        const resp = await fetch('/api/authenticate/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({
+                image: primaryImage,
+                challenge_frames: challengeCaptures, // all three poses sent
+            }),
+        });
+        const data = await resp.json();
+
+        // Update scores
+        if (typeof data.liveness_score !== 'undefined') {
+            const lp = Math.round(data.liveness_score * 100);
+            livenessScoreEl.textContent = lp + '%';
+            livenessScoreEl.className = 'score-val ' + (data.liveness_pass ? 'live' : 'fail');
+        }
+        if (typeof data.similarity !== 'undefined') {
+            const sp = Math.round(data.similarity * 100);
+            matchScoreEl.textContent = sp + '%';
+            matchScoreEl.className = 'score-val ' + (data.similarity >= 0.85 ? 'match' : 'fail');
+        }
+
+        if (data.success) {
+            statusIconEl.textContent = '✅';
+            camLabel.textContent = '✅ Verified!';
+            camLabel.style.background = 'rgba(0,135,81,.85)';
+            showResult('success', '✅ ' + data.message);
+            progress.classList.remove('show');
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            if (animFrame) cancelAnimationFrame(animFrame);
+            setTimeout(() => { window.location.href = data.redirect || '/vote/'; }, 1500);
+
+        } else {
+            statusIconEl.textContent = '❌';
+            camLabel.textContent = '❌ Verification failed';
+            showResult('error', '❌ ' + data.message +
+                (data.attempts_remaining !== undefined ? ` (${data.attempts_remaining} attempts left)` : ''));
+            progress.classList.remove('show');
+
+            if (data.rate_limited || data.locked_out) {
+                btnVerify.style.display = 'none';
+            } else if (attempts < MAX_ATTEMPTS) {
+                // Reset for retry
+                setTimeout(() => {
+                    verifying = false;
+                    challengeStep = 0;
+                    challengeCaptures = {};
+                    [1,2,3].forEach(i => {
+                        const s = document.getElementById(`cStep${i}`);
+                        s.classList.remove('active','done');
+                    });
+                    camLabel.textContent = '🟢 Ready — click to try again';
+                    camLabel.style.background = '';
+                    statusIconEl.textContent = '⏳';
+                    btnVerify.style.display = 'flex';
+                    btnVerify.textContent = '🔍 Try Again';
+                    btnVerify.disabled = false;
+                    progress.classList.remove('show');
+                }, 2500);
+            } else {
+                btnVerify.style.display = 'none';
+                showResult('error', '❌ Maximum attempts reached. Contact INEC support or try again later.');
+            }
+        }
+    } catch (e) {
+        verifying = false;
+        camLabel.textContent = '🟢 Ready — try again';
+        showResult('error', '❌ Network error. Please check your connection and try again.');
+        btnVerify.style.display = 'flex';
+        btnVerify.disabled = false;
+    }
+}
+
+function showResult(type, msg) {
+    resultEl.className = `alert alert-${type === 'success' ? 'success' : 'error'} show`;
+    resultEl.textContent = msg;
+    resultEl.style.display = 'flex';
+    resultEl.style.marginBottom = '1rem';
+}
+
+function getCsrf() {
+    return document.cookie.split(';')
+        .find(c => c.trim().startsWith('csrftoken='))
+        ?.split('=')[1] || '';
+}
+
+btnVerify.addEventListener('click', startLivenessChallenge);
+startCamera();
+</script>
+{% endblock %}

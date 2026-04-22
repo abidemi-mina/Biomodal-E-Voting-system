@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin – NigeriaVotes{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --green: #008751; --green-dark: #005c38; --green-light: #00b36b; --green-muted: #e8f5ee;
+            --white: #ffffff; --gray-50: #f8fafb; --gray-100: #f1f3f5; --gray-200: #e9ecef;
+            --gray-400: #9ca3af; --gray-600: #4b5563; --gray-800: #1f2937; --gray-900: #111827;
+            --red: #dc2626; --amber: #d97706; --blue: #1d4ed8;
+            --sidebar-w: 240px;
+            --font: 'Sora', sans-serif; --mono: 'JetBrains Mono', monospace;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font); background: var(--gray-50); color: var(--gray-900); display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-w); background: var(--green-dark);
+            display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0;
+            z-index: 50; overflow-y: auto;
+        }
+        .sidebar-logo {
+            padding: 1.5rem 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,.1);
+            display: flex; align-items: center; gap: .75rem;
+        }
+        .sidebar-logo .icon { font-size: 1.5rem; }
+        .sidebar-logo .name { color: white; font-weight: 700; font-size: .95rem; }
+        .sidebar-logo .sub { color: rgba(255,255,255,.5); font-size: .68rem; }
+        .sidebar-nav { padding: 1rem 0; flex: 1; }
+        .nav-section-label {
+            padding: .75rem 1.25rem .25rem;
+            font-size: .65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .1em; color: rgba(255,255,255,.4);
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .65rem 1.25rem;
+            color: rgba(255,255,255,.75);
+            text-decoration: none;
+            font-size: .85rem; font-weight: 500;
+            transition: all .15s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255,255,255,.12);
+            color: white;
+        }
+        .nav-item.active { border-right: 3px solid var(--green-light); }
+        .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+        .sidebar-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid rgba(255,255,255,.1);
+            font-size: .78rem; color: rgba(255,255,255,.5);
+        }
+
+        /* Main */
+        .admin-main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+
+        /* Top bar */
+        .topbar {
+            background: white; border-bottom: 1px solid var(--gray-200);
+            padding: 0 2rem; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 40;
+        }
+        .topbar h1 { font-size: 1.1rem; font-weight: 700; }
+        .topbar-right { display: flex; align-items: center; gap: 1rem; font-size: .85rem; color: var(--gray-600); }
+
+        /* Content */
+        .admin-content { padding: 2rem; flex: 1; }
+
+        /* Cards */
+        .card { background: white; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,.06); padding: 1.5rem; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--gray-100); }
+        .card-title { font-size: 1rem; font-weight: 700; }
+
+        /* Stat cards */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+        .stat-card { background: white; border-radius: 14px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,.06); border-left: 4px solid; }
+        .stat-card.green { border-color: var(--green); }
+        .stat-card.blue { border-color: var(--blue); }
+        .stat-card.amber { border-color: var(--amber); }
+        .stat-card.red { border-color: var(--red); }
+        .stat-num { font-size: 2rem; font-weight: 800; font-family: var(--mono); }
+        .stat-label { font-size: .8rem; color: var(--gray-600); margin-top: .25rem; font-weight: 500; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem 1.2rem; border-radius: 8px; font-family: var(--font); font-size: .85rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; transition: all .2s; }
+        .btn-primary { background: var(--green); color: white; }
+        .btn-primary:hover { background: var(--green-dark); }
+        .btn-secondary { background: var(--gray-100); color: var(--gray-800); }
+        .btn-secondary:hover { background: var(--gray-200); }
+        .btn-danger { background: var(--red); color: white; }
+        .btn-sm { padding: .35rem .8rem; font-size: .78rem; }
+
+        /* Tables */
+        .table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        .table th { padding: .65rem 1rem; text-align: left; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-600); background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+        .table td { padding: .8rem 1rem; border-bottom: 1px solid var(--gray-100); color: var(--gray-800); }
+        .table tr:last-child td { border-bottom: none; }
+        .table tbody tr:hover { background: var(--gray-50); }
+
+        /* Badges */
+        .badge { display: inline-block; padding: .2rem .6rem; border-radius: 6px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+        .badge-success { background: var(--green-muted); color: var(--green-dark); }
+        .badge-warning { background: #fffbeb; color: #92400e; }
+        .badge-danger { background: #fef2f2; color: #991b1b; }
+        .badge-info { background: #eff6ff; color: #1e40af; }
+        .badge-gray { background: var(--gray-100); color: var(--gray-600); }
+
+        /* Forms */
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; font-size: .78rem; font-weight: 700; color: var(--gray-600); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .04em; }
+        .form-control { width: 100%; padding: .65rem .9rem; border: 1.5px solid var(--gray-200); border-radius: 8px; font-family: var(--font); font-size: .88rem; transition: border-color .2s; }
+        .form-control:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,135,81,.12); }
+
+        /* Alerts */
+        .alert { padding: .8rem 1rem; border-radius: 10px; font-size: .85rem; margin-bottom: 1rem; }
+        .alert-success { background: var(--green-muted); color: var(--green-dark); border-left: 4px solid var(--green); }
+        .alert-error { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--red); }
+        .alert-warning { background: #fffbeb; color: #92400e; border-left: 4px solid var(--amber); }
+
+        /* Utilities */
+        .flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; } .gap-1 { gap: .5rem; } .gap-2 { gap: 1rem; }
+        .mt-1 { margin-top: .5rem; } .mt-2 { margin-top: 1rem; } .mt-3 { margin-top: 1.5rem; }
+        .mb-2 { margin-bottom: 1rem; } .mb-3 { margin-bottom: 1.5rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .text-muted { color: var(--gray-400); font-size: .82rem; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<!-- Sidebar -->
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="icon">🗳️</div>
+        <div>
+            <div class="name">NigeriaVotes</div>
+            <div class="sub">Admin Panel</div>
+        </div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-section-label">Overview</div>
+        <a href="/admin-panel/" class="nav-item {% block nav_dashboard %}{% endblock %}">
+            <span class="nav-icon">📊</span> Dashboard
+        </a>
+
+        <div class="nav-section-label">Management</div>
+        <a href="/admin-panel/voters/" class="nav-item {% block nav_voters %}{% endblock %}">
+            <span class="nav-icon">👥</span> Voters
+        </a>
+        <a href="/admin-panel/elections/" class="nav-item {% block nav_elections %}{% endblock %}">
+            <span class="nav-icon">📋</span> Elections
+        </a>
+        <a href="/admin-panel/candidates/" class="nav-item {% block nav_candidates %}{% endblock %}">
+            <span class="nav-icon">🏃</span> Candidates
+        </a>
+
+        <div class="nav-section-label">Monitoring</div>
+        <a href="/admin-panel/audit/" class="nav-item {% block nav_audit %}{% endblock %}">
+            <span class="nav-icon">📝</span> Audit Logs
+        </a>
+        <a href="/admin-panel/metrics/" class="nav-item {% block nav_metrics %}{% endblock %}">
+            <span class="nav-icon">📈</span> Performance
+        </a>
+
+        <div class="nav-section-label">Access</div>
+        <a href="/" class="nav-item">
+            <span class="nav-icon">🌐</span> Public Site
+        </a>
+        <a href="/admin-panel/logout/" class="nav-item">
+            <span class="nav-icon">🚪</span> Logout
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        Logged in as <strong style="color:rgba(255,255,255,.7);">{{ request.user.username }}</strong>
+    </div>
+</aside>
+
+<!-- Main -->
+<div class="admin-main">
+    <div class="topbar">
+        <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+        <div class="topbar-right">
+            <span>🟢 System Online</span>
+            <span>{{ user.username }}</span>
+        </div>
+    </div>
+
+    <div class="admin-content">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,62 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Voters – Admin{% endblock %}
+{% block page_title %}Voter Management{% endblock %}
+{% block nav_voters %}active{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">👥 All Registered Voters ({{ voters.count }})</div>
+        <input type="text" placeholder="Search voters..." id="searchInput" class="form-control" style="width:220px;">
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="table" id="votersTable">
+            <thead>
+                <tr>
+                    <th>Voter ID</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>State</th>
+                    <th>Status</th>
+                    <th>Registered</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for voter in voters %}
+                <tr>
+                    <td><code style="font-family:var(--mono);font-size:.82rem;">{{ voter.voter_id }}</code></td>
+                    <td style="font-weight:600;">{{ voter.full_name }}</td>
+                    <td style="color:var(--gray-600);">{{ voter.email }}</td>
+                    <td>{{ voter.state }}</td>
+                    <td>
+                        <span class="badge badge-{% if voter.status == 'approved' %}success{% elif voter.status == 'pending' %}warning{% else %}danger{% endif %}">
+                            {{ voter.status }}
+                        </span>
+                    </td>
+                    <td class="text-muted">{{ voter.registered_at|date:"M d, Y" }}</td>
+                    <td>
+                        {% if voter.status == 'pending' %}
+                        <a href="/admin-panel/voters/{{ voter.id }}/approve/" class="btn btn-primary btn-sm">Approve</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:2rem;">No voters registered yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#votersTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

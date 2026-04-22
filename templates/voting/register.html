@@ -1,0 +1,186 @@
+{% extends "voting/base.html" %}
+{% block title %}Register to Vote – NigeriaVotes{% endblock %}
+
+{% block extra_css %}
+<style>
+.register-wrap {
+    max-width: 760px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+}
+.register-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.register-header h1 {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    margin-bottom: .5rem;
+}
+.section-title {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--green);
+    margin-bottom: 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 2px solid var(--green-muted);
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 2rem;
+}
+.step-dot {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700;
+}
+.step-dot.active { background: var(--green); color: white; }
+.step-dot.inactive { background: var(--gray-200); color: var(--gray-600); }
+.step-line { height: 2px; width: 80px; background: var(--gray-200); }
+.step-line.done { background: var(--green); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-wrap">
+    <div class="register-header">
+        <div style="font-size:2.5rem;margin-bottom:.5rem;">📋</div>
+        <h1>Voter Registration</h1>
+        <p style="color:var(--gray-600);">Complete your registration to participate in Nigeria's digital democracy</p>
+    </div>
+
+    <div class="step-indicator">
+        <div class="step-dot active">1</div>
+        <div class="step-line"></div>
+        <div class="step-dot inactive">2</div>
+        <div class="step-line"></div>
+        <div class="step-dot inactive">✓</div>
+    </div>
+    <p style="text-align:center;font-size:.82rem;color:var(--gray-400);margin-bottom:2rem;">Step 1 of 2 — Personal Information</p>
+
+    <div class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    ❌ {{ form.non_field_errors|join:", " }}
+                </div>
+            {% endif %}
+
+            <!-- Personal Info -->
+            <div class="section-title">👤 Personal Information</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Voter ID (VIN) *</label>
+                    <input type="text" name="voter_id" class="form-control {% if form.voter_id.errors %}is-invalid{% endif %}"
+                           value="{{ form.voter_id.value|default:'' }}" placeholder="e.g. 00AB123456789" required>
+                    {% if form.voter_id.errors %}<div class="form-error">{{ form.voter_id.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Full Legal Name *</label>
+                    <input type="text" name="full_name" class="form-control {% if form.full_name.errors %}is-invalid{% endif %}"
+                           value="{{ form.full_name.value|default:'' }}" placeholder="As on NIN slip" required>
+                    {% if form.full_name.errors %}<div class="form-error">{{ form.full_name.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Email Address *</label>
+                    <input type="email" name="email" class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                           value="{{ form.email.value|default:'' }}" placeholder="your@email.com" required>
+                    {% if form.email.errors %}<div class="form-error">{{ form.email.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm Email *</label>
+                    <input type="email" name="confirm_email" class="form-control" placeholder="Repeat email" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Phone Number *</label>
+                    <input type="tel" name="phone" class="form-control {% if form.phone.errors %}is-invalid{% endif %}"
+                           value="{{ form.phone.value|default:'' }}" placeholder="+234XXXXXXXXXX" required>
+                    {% if form.phone.errors %}<div class="form-error">{{ form.phone.errors|join:", " }}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date of Birth *</label>
+                    <input type="date" name="date_of_birth" class="form-control {% if form.date_of_birth.errors %}is-invalid{% endif %}"
+                           value="{{ form.date_of_birth.value|default:'' }}" required>
+                    {% if form.date_of_birth.errors %}<div class="form-error">{{ form.date_of_birth.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Gender *</label>
+                <select name="gender" class="form-control">
+                    <option value="">-- Select --</option>
+                    <option value="M" {% if form.gender.value == 'M' %}selected{% endif %}>Male</option>
+                    <option value="F" {% if form.gender.value == 'F' %}selected{% endif %}>Female</option>
+                    <option value="O" {% if form.gender.value == 'O' %}selected{% endif %}>Other / Prefer not to say</option>
+                </select>
+            </div>
+
+            <!-- Electoral Info -->
+            <div class="section-title mt-3">📍 Electoral Information</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">State *</label>
+                    <select name="state" class="form-control">
+                        {% for val, label in form.fields.state.choices %}
+                            <option value="{{ val }}" {% if form.state.value == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Local Government Area *</label>
+                    <input type="text" name="lga" class="form-control {% if form.lga.errors %}is-invalid{% endif %}"
+                           value="{{ form.lga.value|default:'' }}" placeholder="Your LGA" required>
+                    {% if form.lga.errors %}<div class="form-error">{{ form.lga.errors|join:", " }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Ward *</label>
+                    <input type="text" name="ward" class="form-control" value="{{ form.ward.value|default:'' }}" placeholder="Electoral Ward" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Polling Unit *</label>
+                    <input type="text" name="polling_unit" class="form-control" value="{{ form.polling_unit.value|default:'' }}" placeholder="Polling Unit Name/Code" required>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-2">
+                ℹ️ Ensure all information matches your INEC Voter Registration details exactly.
+            </div>
+
+            <div class="flex justify-between items-center mt-3">
+                <a href="/" class="btn btn-secondary">← Back</a>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    Continue to Face Capture →
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <p style="text-align:center;margin-top:1.5rem;font-size:.85rem;color:var(--gray-400);">
+        Already registered? <a href="/login/" style="color:var(--green);font-weight:600;">Login to Vote</a>
+    </p>
+</div>
+{% endblock %}

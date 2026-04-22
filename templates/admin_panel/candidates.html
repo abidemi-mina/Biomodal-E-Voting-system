@@ -1,0 +1,91 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Candidates – Admin{% endblock %}
+{% block page_title %}Candidate Management{% endblock %}
+{% block nav_candidates %}active{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start;">
+    <!-- Candidates list -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">🏃 All Candidates</div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Party</th>
+                        <th>Election</th>
+                        <th>Votes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for candidate in candidates %}
+                    <tr>
+                        <td>{{ candidate.position_number }}</td>
+                        <td style="font-weight:600;">{{ candidate.full_name }}</td>
+                        <td><span class="badge badge-info">{{ candidate.party }}</span></td>
+                        <td class="text-muted">{{ candidate.election.title|truncatechars:25 }}</td>
+                        <td style="font-family:var(--mono);">{{ candidate.vote_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:2rem;">No candidates added yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add candidate form -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">➕ Add Candidate</div>
+        </div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Election *</label>
+                <select name="election" class="form-control" required>
+                    <option value="">-- Select Election --</option>
+                    {% for election in form.fields.election.queryset %}
+                    <option value="{{ election.id }}">{{ election.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Full Name *</label>
+                <input type="text" name="full_name" class="form-control" placeholder="Candidate full name" required>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Party *</label>
+                    <select name="party" class="form-control" required>
+                        {% for val, label in form.fields.party.choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ballot Position</label>
+                    <input type="number" name="position_number" class="form-control" value="1" min="1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Party Full Name (optional)</label>
+                <input type="text" name="party_name" class="form-control" placeholder="e.g. All Progressives Congress">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bio (optional)</label>
+                <textarea name="bio" class="form-control" rows="2" placeholder="Short candidate biography"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Photo (optional)</label>
+                <input type="file" name="photo" class="form-control" accept="image/*">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Add Candidate</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,363 @@
+{% extends "voting/base.html" %}
+{% block title %}Face Capture – NigeriaVotes{% endblock %}
+
+{% block extra_css %}
+<style>
+.capture-wrap { max-width: 680px; margin: 2rem auto; padding: 0 1.5rem; }
+.capture-header { text-align: center; margin-bottom: 2rem; }
+.capture-header h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: -.03em; }
+
+/* Camera box */
+.camera-container {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto 1.5rem;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #111;
+    aspect-ratio: 4/3;
+    box-shadow: var(--shadow-lg);
+}
+#videoEl {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1); /* mirror */
+}
+.camera-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.face-guide {
+    width: 200px; height: 260px;
+    border: 3px solid rgba(0,183,107,.8);
+    border-radius: 50%/60%;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.3);
+    animation: glow 2s ease-in-out infinite;
+}
+@keyframes glow {
+    0%,100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.3), 0 0 24px rgba(0,183,107,.4); }
+    50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.3), 0 0 40px rgba(0,183,107,.8); }
+}
+.camera-status {
+    position: absolute;
+    top: 1rem; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.7);
+    color: white;
+    padding: .4rem 1rem;
+    border-radius: 99px;
+    font-size: .8rem;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+}
+
+/* Capture count */
+.captures-grid {
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+.capture-thumb {
+    width: 64px; height: 64px;
+    border-radius: 10px;
+    border: 2px dashed var(--gray-300);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--gray-100);
+    overflow: hidden;
+    transition: all .3s;
+}
+.capture-thumb.filled { border-color: var(--green); }
+.capture-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+.capture-thumb .empty-icon { color: var(--gray-400); font-size: 1.3rem; }
+
+/* Steps guide */
+.tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.5rem; }
+.tip { display: flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--gray-600); }
+
+/* Progress overlay */
+.upload-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+}
+.upload-overlay.active { display: flex; }
+.upload-card {
+    background: white;
+    border-radius: 20px;
+    padding: 3rem;
+    text-align: center;
+    width: 340px;
+}
+.big-spinner {
+    width: 56px; height: 56px;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="capture-wrap">
+    <div class="step-indicator" style="display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:1rem;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--gray-200);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--gray-600);">✓</div>
+        <div style="height:2px;width:80px;background:var(--green);"></div>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--green);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;">2</div>
+        <div style="height:2px;width:80px;background:var(--gray-200);"></div>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--gray-200);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--gray-600);">3</div>
+    </div>
+    <p style="text-align:center;font-size:.82rem;color:var(--gray-400);margin-bottom:1.5rem;">Step 2 of 2 — Facial Biometric Capture</p>
+
+    <div class="capture-header">
+        <h1>📸 Face Capture</h1>
+        <p style="color:var(--gray-600);">Registering: <strong>{{ voter_name }}</strong></p>
+    </div>
+
+    <!-- Camera -->
+    <div class="camera-container pulse-ring">
+        <video id="videoEl" autoplay muted playsinline></video>
+        <canvas id="canvasEl" style="display:none;"></canvas>
+        <div class="camera-overlay">
+            <div class="face-guide" id="faceGuide"></div>
+        </div>
+        <div class="camera-status" id="cameraStatus">📷 Starting camera...</div>
+    </div>
+
+    <!-- Captured thumbnails -->
+    <div class="captures-grid" id="capturesGrid">
+        {% for i in "12345" %}
+        <div class="capture-thumb" id="thumb-{{ forloop.counter }}">
+            <span class="empty-icon">{{ forloop.counter }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Instructions -->
+    <div class="card mb-3">
+        <div class="tips-grid">
+            <div class="tip">✅ Face camera directly</div>
+            <div class="tip">✅ Good even lighting</div>
+            <div class="tip">✅ Remove sunglasses</div>
+            <div class="tip">✅ Neutral expression</div>
+            <div class="tip">🔄 Slight left turn</div>
+            <div class="tip">🔄 Slight right turn</div>
+        </div>
+        <div id="captureInstruction" class="alert alert-info" style="margin:0;">
+            👆 Position your face within the oval guide and click "Capture Photo"
+        </div>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex;flex-direction:column;gap:.75rem;max-width:400px;margin:0 auto;">
+        <button id="btnCapture" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;">
+            📸 Capture Photo (0/5)
+        </button>
+        <button id="btnSubmit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;display:none;background:var(--green-dark);">
+            ✅ Complete Registration
+        </button>
+        <button id="btnRetake" class="btn btn-secondary" style="justify-content:center;display:none;" onclick="resetCaptures()">
+            🔄 Start Over
+        </button>
+    </div>
+
+    <div id="errorMsg" class="alert alert-error mt-3" style="display:none;"></div>
+</div>
+
+<!-- Processing overlay -->
+<div class="upload-overlay" id="uploadOverlay">
+    <div class="upload-card">
+        <div class="big-spinner"></div>
+        <h3 style="font-weight:700;margin-bottom:.5rem;">Processing Registration</h3>
+        <p style="color:var(--gray-600);font-size:.9rem;">Generating your biometric template using FaceNet…</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const REQUIRED_CAPTURES = 5;
+const capturedImages = [];
+let stream = null;
+const video = document.getElementById('videoEl');
+const canvas = document.getElementById('canvasEl');
+const status = document.getElementById('cameraStatus');
+const btnCapture = document.getElementById('btnCapture');
+const btnSubmit = document.getElementById('btnSubmit');
+const btnRetake = document.getElementById('btnRetake');
+const errorMsg = document.getElementById('errorMsg');
+const overlay = document.getElementById('uploadOverlay');
+const instruction = document.getElementById('captureInstruction');
+
+const INSTRUCTIONS = [
+    'Look straight at the camera',
+    'Turn your head slightly to the LEFT',
+    'Turn your head slightly to the RIGHT',
+    'Tilt your head slightly UP',
+    'Smile slightly or change expression',
+];
+
+// ── Start camera ─────────────────────────────────────────────
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            status.textContent = '🟢 Camera ready';
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        };
+    } catch (err) {
+        status.textContent = '❌ Camera error';
+        showError('Camera access denied. Please allow camera permissions and reload.');
+        btnCapture.disabled = true;
+    }
+}
+
+// ── Capture a frame ───────────────────────────────────────────
+function captureFrame() {
+    if (capturedImages.length >= REQUIRED_CAPTURES) return;
+
+    const ctx = canvas.getContext('2d');
+    // Mirror the canvas to match display
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    capturedImages.push(dataUrl);
+    updateUI();
+
+    // Flash effect
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;background:white;opacity:.7;border-radius:20px;pointer-events:none;animation:flash .3s ease forwards;';
+    document.querySelector('.camera-container').appendChild(overlay);
+    setTimeout(() => overlay.remove(), 300);
+}
+
+// ── Update UI state ───────────────────────────────────────────
+function updateUI() {
+    const count = capturedImages.length;
+    btnCapture.textContent = `📸 Capture Photo (${count}/${REQUIRED_CAPTURES})`;
+
+    // Update thumbnails
+    capturedImages.forEach((img, i) => {
+        const thumb = document.getElementById(`thumb-${i + 1}`);
+        thumb.classList.add('filled');
+        thumb.innerHTML = `<img src="${img}" alt="Capture ${i+1}">`;
+    });
+
+    // Update instruction
+    if (count < REQUIRED_CAPTURES) {
+        instruction.textContent = `📌 ${INSTRUCTIONS[count] || 'One more capture!'}`;
+        instruction.className = 'alert alert-info';
+        instruction.style.margin = '0';
+    }
+
+    if (count >= REQUIRED_CAPTURES) {
+        btnCapture.style.display = 'none';
+        btnSubmit.style.display = 'flex';
+        btnRetake.style.display = 'flex';
+        status.textContent = '✅ All 5 captures done!';
+        instruction.textContent = '✅ All captures complete! Review and click "Complete Registration".';
+        instruction.className = 'alert alert-success';
+        instruction.style.margin = '0';
+    }
+}
+
+function resetCaptures() {
+    capturedImages.length = 0;
+    for (let i = 1; i <= 5; i++) {
+        const thumb = document.getElementById(`thumb-${i}`);
+        thumb.classList.remove('filled');
+        thumb.innerHTML = `<span class="empty-icon">${i}</span>`;
+    }
+    btnCapture.style.display = 'flex';
+    btnCapture.textContent = `📸 Capture Photo (0/${REQUIRED_CAPTURES})`;
+    btnSubmit.style.display = 'none';
+    btnRetake.style.display = 'none';
+    instruction.textContent = '👆 Position your face within the oval guide and click "Capture Photo"';
+    instruction.className = 'alert alert-info';
+    instruction.style.margin = '0';
+    status.textContent = '🟢 Camera ready';
+    hideError();
+}
+
+// ── Submit registration ───────────────────────────────────────
+async function submitRegistration() {
+    if (capturedImages.length < REQUIRED_CAPTURES) {
+        showError(`Please capture all ${REQUIRED_CAPTURES} photos.`);
+        return;
+    }
+
+    overlay.classList.add('active');
+    hideError();
+
+    try {
+        const resp = await fetch('/api/register/submit/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify({ images: capturedImages }),
+        });
+        const data = await resp.json();
+        overlay.classList.remove('active');
+
+        if (data.success) {
+            // Stop camera
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            // Redirect to success page
+            window.location.href = `/login/?registered=1&voter_id=${encodeURIComponent(data.voter_id)}`;
+        } else {
+            showError(data.message || 'Registration failed. Please try again.');
+        }
+    } catch (err) {
+        overlay.classList.remove('active');
+        showError('Network error. Please check your connection and try again.');
+    }
+}
+
+function showError(msg) {
+    errorMsg.textContent = '❌ ' + msg;
+    errorMsg.style.display = 'flex';
+}
+function hideError() { errorMsg.style.display = 'none'; }
+
+function getCsrf() {
+    return document.cookie.split(';')
+        .find(c => c.trim().startsWith('csrftoken='))
+        ?.split('=')[1] || '';
+}
+
+// Event listeners
+btnCapture.addEventListener('click', captureFrame);
+btnSubmit.addEventListener('click', submitRegistration);
+
+// Add flash keyframe
+const style = document.createElement('style');
+style.textContent = '@keyframes flash { 0% {opacity:.7} 100% {opacity:0;pointer-events:none} }';
+document.head.appendChild(style);
+
+// Init
+startCamera();
+</script>
+{% endblock %}
